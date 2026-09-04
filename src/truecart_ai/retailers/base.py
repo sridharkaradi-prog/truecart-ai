@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from truecart_ai.domain.models import Product, ProductOffer
+from truecart_ai.domain.models import Location, Product, ProductOffer
 
 
 class RetailerAdapter(ABC):
@@ -13,6 +13,10 @@ class RetailerAdapter(ABC):
         ...
 
     @abstractmethod
-    def search_product(self, product: Product) -> ProductOffer | None:
-        """Search the retailer and return a normalized offer."""
+    def search_product(
+        self,
+        product: Product,
+        location: Location,
+    ) -> ProductOffer | None:
+        """Search the retailer for a product at a location."""
         ...
