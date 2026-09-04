@@ -7,6 +7,10 @@ name = "truecart-ai"
 version = "0.1.0"
 description = "Location-aware multi-retailer checkout price comparison platform"
 requires-python = ">=3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

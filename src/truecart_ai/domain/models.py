@@ -34,3 +34,17 @@ class ProductOffer:
     price: Price
     available: bool
     product_url: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class RetailerResult:
+    retailer: str
+    status: str
+    offer: Optional[ProductOffer] = None
+    error: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ComparisonResult:
+    best_offer: Optional[ProductOffer]
+    retailer_results: list[RetailerResult]

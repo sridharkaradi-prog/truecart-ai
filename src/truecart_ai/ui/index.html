@@ -1,0 +1,375 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrueCart AI</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .header { margin-bottom: 25px; }
+
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+        }
+
+        .header p {
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        .search-box {
+            background: white;
+            padding: 22px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            display: flex;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .field { flex: 1; }
+
+        .field.small { max-width: 180px; }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 7px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #111827;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .best-card {
+            margin-top: 25px;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            border-left: 5px solid #16a34a;
+        }
+
+        .best-label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #16a34a;
+        }
+
+        .best-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .best-retailer {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .best-price {
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        .results {
+            margin-top: 25px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: #f9fafb;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #6b7280;
+        }
+
+        .winner {
+            font-weight: bold;
+            color: #16a34a;
+        }
+
+        .success {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .demo {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff7ed;
+            border-radius: 8px;
+            color: #9a3412;
+            display: none;
+        }
+
+        @media (max-width: 800px) {
+            .search-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .field.small {
+                max-width: none;
+            }
+
+            .results {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 700px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h1>TrueCart AI</h1>
+        <p>Find the cheapest actual checkout price across retailers.</p>
+        <div class="demo">Demo mode - prices are simulated for MVP validation.</div>
+    </div>
+
+    <div class="search-box">
+
+        <div class="field">
+            <label>PRODUCT</label>
+            <input id="product" value="Tata Salt" placeholder="Enter product">
+        </div>
+
+        <div class="field small">
+            <label>PINCODE</label>
+            <input id="pincode" value="411028" maxlength="6">
+        </div>
+
+        <button onclick="comparePrices()">
+            Compare Prices
+        </button>
+
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <div id="best-card" class="best-card" style="display:none;">
+        <div class="best-label">BEST CHECKOUT PRICE</div>
+
+        <div class="best-row">
+            <div id="best-retailer" class="best-retailer"></div>
+            <div id="best-price" class="best-price"></div>
+        </div>
+    </div>
+
+    <div id="results" class="results" style="display:none;">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Retailer</th>
+                    <th>Product</th>
+                    <th>Delivery</th>
+                    <th>Handling</th>
+                    <th>Final Checkout</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody id="results-body"></tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script>
+
+async function comparePrices() {
+
+    const product = document.getElementById("product").value.trim();
+    const pincode = document.getElementById("pincode").value.trim();
+    const message = document.getElementById("message");
+
+    if (!product || !/^\d{6}$/.test(pincode)) {
+        message.style.display = "block";
+        message.textContent =
+            "Please enter a product and a valid 6-digit pincode.";
+        return;
+    }
+
+    message.style.display = "none";
+
+    try {
+
+        const response = await fetch(
+            `/compare?product=${encodeURIComponent(product)}&pincode=${encodeURIComponent(pincode)}`
+        );
+
+        if (!response.ok) {
+            throw new Error("API request failed");
+        }
+
+        const data = await response.json();
+
+        renderResults(data);
+
+    } catch (error) {
+
+        message.style.display = "block";
+        message.textContent =
+            "Unable to compare prices. Make sure the TrueCart API is running.";
+
+        console.error(error);
+    }
+}
+
+
+function renderResults(data) {
+
+    const body = document.getElementById("results-body");
+
+    body.innerHTML = "";
+
+    document.getElementById("results").style.display = "block";
+
+    let bestRetailer = null;
+    let bestPrice = Infinity;
+
+    data.retailers.forEach(item => {
+
+        if (item.price !== null) {
+
+            const price = Number(item.price);
+
+            if (price < bestPrice) {
+                bestPrice = price;
+                bestRetailer = item.retailer;
+            }
+        }
+    });
+
+    if (bestRetailer) {
+
+        document.getElementById("best-card").style.display = "block";
+
+        document.getElementById("best-retailer").textContent =
+            formatRetailer(bestRetailer);
+
+        document.getElementById("best-price").textContent =
+            "INR " + bestPrice.toFixed(2);
+
+    } else {
+
+        document.getElementById("best-card").style.display = "none";
+    }
+
+    data.retailers.forEach(item => {
+
+        const row = document.createElement("tr");
+
+        const isWinner = item.retailer === bestRetailer;
+
+        row.innerHTML = `
+            <td class="${isWinner ? "winner" : ""}">
+                ${formatRetailer(item.retailer)}
+                ${isWinner ? " [BEST]" : ""}
+            </td>
+
+            <td>
+                ${item.price !== null ? "INR " + Number(item.price).toFixed(2) : "-"}
+            </td>
+
+            <td>-</td>
+
+            <td>-</td>
+
+            <td class="${isWinner ? "winner" : ""}">
+                ${item.price !== null ? "INR " + Number(item.price).toFixed(2) : "-"}
+            </td>
+
+            <td>
+                <span class="${item.status === "success" ? "success" : "error"}">
+                    ${item.status}
+                </span>
+            </td>
+        `;
+
+        body.appendChild(row);
+    });
+}
+
+
+function formatRetailer(name) {
+
+    return name
+        .split("_")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}
+
+</script>
+
+</body>
+</html>
