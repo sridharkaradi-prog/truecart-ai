@@ -1,5 +1,5 @@
-﻿from pathlib import Path
-import os
+﻿import os
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -7,15 +7,18 @@ from fastapi.responses import FileResponse
 from truecart_ai.domain.models import Location, Product
 from truecart_ai.retailers.demo import DemoRetailerAdapter
 from truecart_ai.retailers.registry import RetailerRegistry
+from truecart_ai.services.checkout_pricing import CheckoutPricingService
 from truecart_ai.services.orchestrator import RetailerOrchestrator
 from truecart_ai.services.product_catalogue import PRODUCT_CATALOGUE
 from truecart_ai.services.product_search import ProductSearchService
+
 
 router = APIRouter()
 
 UI_PATH = Path(__file__).resolve().parent.parent / "ui" / "index.html"
 
 product_search = ProductSearchService(PRODUCT_CATALOGUE)
+checkout_pricing = CheckoutPricingService()
 
 
 def get_orchestrator() -> RetailerOrchestrator:
@@ -86,28 +89,30 @@ def compare_product(
     product: str,
     pincode: str,
 ) -> dict:
+    try:
+        location = Location(pincode=pincode)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
     product_model = Product(name=product)
-    location = Location(pincode=pincode)
 
     result = get_orchestrator().compare(
         product_model,
         location,
     )
 
-    return {
-        "product": product,
-        "pincode": pincode,
-        "best_offer": (
-            {
-                "retailer": result.best_offer.retailer,
-                "product": result.best_offer.product.name,
-                "price": str(result.best_offer.price.amount),
-                "currency": result.best_offer.price.currency,
-            }
-            if result.best_offer
-            else None
-        ),
-        "retailers": [
+    retailers = []
+
+    for item in result.retailer_results:
+        checkout = None
+
+        if item.offer is not None:
+            checkout = checkout_pricing.calculate(item.offer)
+
+        retailers.append(
             {
                 "retailer": item.retailer,
                 "status": item.status,
@@ -121,8 +126,43 @@ def compare_product(
                     if item.offer
                     else None
                 ),
+                "delivery_fee": (
+                    str(checkout.delivery_fee)
+                    if checkout
+                    else None
+                ),
+                "handling_fee": (
+                    str(checkout.handling_fee)
+                    if checkout
+                    else None
+                ),
+                "final_checkout_price": (
+                    str(checkout.final_price)
+                    if checkout
+                    else None
+                ),
                 "error": item.error,
             }
-            for item in result.retailer_results
-        ],
+        )
+
+    best_offer = None
+
+    if result.best_offer is not None:
+        best_checkout = checkout_pricing.calculate(result.best_offer)
+
+        best_offer = {
+            "retailer": result.best_offer.retailer,
+            "product": result.best_offer.product.name,
+            "price": str(result.best_offer.price.amount),
+            "delivery_fee": str(best_checkout.delivery_fee),
+            "handling_fee": str(best_checkout.handling_fee),
+            "final_checkout_price": str(best_checkout.final_price),
+            "currency": result.best_offer.price.currency,
+        }
+
+    return {
+        "product": product,
+        "pincode": pincode,
+        "best_offer": best_offer,
+        "retailers": retailers,
     }

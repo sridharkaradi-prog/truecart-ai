@@ -21,7 +21,9 @@
             padding: 0 20px;
         }
 
-        .header { margin-bottom: 25px; }
+        .header {
+            margin-bottom: 25px;
+        }
 
         .header h1 {
             margin: 0;
@@ -48,7 +50,9 @@
             position: relative;
         }
 
-        .field.small { max-width: 180px; }
+        .field.small {
+            max-width: 180px;
+        }
 
         label {
             display: block;
@@ -165,7 +169,8 @@
             border-collapse: collapse;
         }
 
-        th, td {
+        th,
+        td {
             padding: 15px;
             text-align: left;
             border-bottom: 1px solid #e5e7eb;
@@ -236,25 +241,33 @@
     <div class="header">
         <h1>TrueCart AI</h1>
         <p>Find the cheapest actual checkout price across retailers.</p>
-        <div class="demo">Demo mode - prices are simulated for MVP validation.</div>
+        <div class="demo">
+            Demo mode - prices are simulated for MVP validation.
+        </div>
     </div>
 
     <div class="search-box">
 
         <div class="field">
             <label>PRODUCT</label>
+
             <input
                 id="product"
                 value="Tata Salt"
                 placeholder="Enter product"
                 autocomplete="off"
             >
+
             <div id="suggestions" class="suggestions"></div>
         </div>
 
         <div class="field small">
             <label>PINCODE</label>
-            <input id="pincode" value="411028" maxlength="6">
+            <input
+                id="pincode"
+                value="411028"
+                maxlength="6"
+            >
         </div>
 
         <button onclick="comparePrices()">
@@ -266,12 +279,25 @@
     <div id="message" class="message"></div>
 
     <div id="best-card" class="best-card" style="display:none;">
-        <div class="best-label">BEST CHECKOUT PRICE</div>
+
+        <div class="best-label">
+            BEST CHECKOUT PRICE
+        </div>
 
         <div class="best-row">
-            <div id="best-retailer" class="best-retailer"></div>
-            <div id="best-price" class="best-price"></div>
+
+            <div
+                id="best-retailer"
+                class="best-retailer"
+            ></div>
+
+            <div
+                id="best-price"
+                class="best-price"
+            ></div>
+
         </div>
+
     </div>
 
     <div id="results" class="results" style="display:none;">
@@ -302,41 +328,52 @@
 let suggestionTimer = null;
 
 
-document.getElementById("product").addEventListener("input", function () {
+document.getElementById("product").addEventListener(
+    "input",
+    function () {
 
-    clearTimeout(suggestionTimer);
-
-    const query = this.value.trim();
-
-    if (query.length < 2) {
-        hideSuggestions();
-        return;
-    }
-
-    suggestionTimer = setTimeout(() => {
-        loadSuggestions(query);
-    }, 250);
-});
-
-
-document.getElementById("pincode").addEventListener("input", function () {
-
-    const query = document.getElementById("product").value.trim();
-
-    if (query.length >= 2) {
         clearTimeout(suggestionTimer);
+
+        const query = this.value.trim();
+
+        if (query.length < 2) {
+            hideSuggestions();
+            return;
+        }
 
         suggestionTimer = setTimeout(() => {
             loadSuggestions(query);
         }, 250);
     }
-});
+);
+
+
+document.getElementById("pincode").addEventListener(
+    "input",
+    function () {
+
+        const query =
+            document.getElementById("product").value.trim();
+
+        if (query.length >= 2) {
+
+            clearTimeout(suggestionTimer);
+
+            suggestionTimer = setTimeout(() => {
+                loadSuggestions(query);
+            }, 250);
+        }
+    }
+);
 
 
 async function loadSuggestions(query) {
 
-    const pincode = document.getElementById("pincode").value.trim();
-    const suggestionsBox = document.getElementById("suggestions");
+    const pincode =
+        document.getElementById("pincode").value.trim();
+
+    const suggestionsBox =
+        document.getElementById("suggestions");
 
     if (!/^\d{6}$/.test(pincode)) {
         hideSuggestions();
@@ -350,43 +387,61 @@ async function loadSuggestions(query) {
         );
 
         if (!response.ok) {
-            throw new Error("Suggestion API request failed");
+            throw new Error(
+                "Suggestion API request failed"
+            );
         }
 
         const data = await response.json();
 
         suggestionsBox.innerHTML = "";
 
-        if (!data.suggestions || data.suggestions.length === 0) {
+        if (
+            !data.suggestions ||
+            data.suggestions.length === 0
+        ) {
             hideSuggestions();
             return;
         }
 
         data.suggestions.forEach(item => {
 
-            const suggestion = document.createElement("div");
+            const suggestion =
+                document.createElement("div");
 
-            suggestion.className = "suggestion-item";
+            suggestion.className =
+                "suggestion-item";
 
             suggestion.innerHTML = `
                 <div class="suggestion-name">
                     ${escapeHtml(item.name)}
                 </div>
+
                 <div class="suggestion-meta">
                     ${escapeHtml(formatRetailer(item.retailer))}
-                    ${item.quantity ? " • " + escapeHtml(item.quantity) : ""}
+                    ${
+                        item.quantity
+                            ? " • " + escapeHtml(item.quantity)
+                            : ""
+                    }
                 </div>
             `;
 
-            suggestion.addEventListener("click", function () {
+            suggestion.addEventListener(
+                "click",
+                function () {
 
-                document.getElementById("product").value = item.name;
+                    document.getElementById(
+                        "product"
+                    ).value = item.name;
 
-                hideSuggestions();
+                    hideSuggestions();
+                }
+            );
 
-            });
-
-            suggestionsBox.appendChild(suggestion);
+            suggestionsBox.appendChild(
+                suggestion
+            );
         });
 
         suggestionsBox.style.display = "block";
@@ -394,6 +449,7 @@ async function loadSuggestions(query) {
     } catch (error) {
 
         hideSuggestions();
+
         console.error(error);
     }
 }
@@ -401,35 +457,52 @@ async function loadSuggestions(query) {
 
 function hideSuggestions() {
 
-    const suggestionsBox = document.getElementById("suggestions");
+    const suggestionsBox =
+        document.getElementById("suggestions");
 
     suggestionsBox.innerHTML = "";
     suggestionsBox.style.display = "none";
 }
 
 
-document.addEventListener("click", function (event) {
+document.addEventListener(
+    "click",
+    function (event) {
 
-    const productField = document.getElementById("product");
+        const productField =
+            document.getElementById("product");
 
-    if (
-        event.target !== productField &&
-        !event.target.closest(".suggestions")
-    ) {
-        hideSuggestions();
+        if (
+            event.target !== productField &&
+            !event.target.closest(".suggestions")
+        ) {
+            hideSuggestions();
+        }
     }
-});
+);
 
 
 async function comparePrices() {
 
     hideSuggestions();
 
-    const product = document.getElementById("product").value.trim();
-    const pincode = document.getElementById("pincode").value.trim();
-    const message = document.getElementById("message");
+    const product =
+        document.getElementById("product")
+            .value
+            .trim();
 
-    if (!product || !/^\d{6}$/.test(pincode)) {
+    const pincode =
+        document.getElementById("pincode")
+            .value
+            .trim();
+
+    const message =
+        document.getElementById("message");
+
+    if (
+        !product ||
+        !/^\d{6}$/.test(pincode)
+    ) {
 
         message.style.display = "block";
 
@@ -448,7 +521,9 @@ async function comparePrices() {
         );
 
         if (!response.ok) {
-            throw new Error("API request failed");
+            throw new Error(
+                "API request failed"
+            );
         }
 
         const data = await response.json();
@@ -469,48 +544,71 @@ async function comparePrices() {
 
 function renderResults(data) {
 
-    const body = document.getElementById("results-body");
+    const body =
+        document.getElementById(
+            "results-body"
+        );
 
     body.innerHTML = "";
 
-    document.getElementById("results").style.display = "block";
+    document.getElementById(
+        "results"
+    ).style.display = "block";
 
     let bestRetailer = null;
     let bestPrice = Infinity;
 
     data.retailers.forEach(item => {
 
-        if (item.price !== null) {
+        if (
+            item.final_checkout_price !== null
+        ) {
 
-            const price = Number(item.price);
+            const price =
+                Number(
+                    item.final_checkout_price
+                );
 
             if (price < bestPrice) {
+
                 bestPrice = price;
-                bestRetailer = item.retailer;
+                bestRetailer =
+                    item.retailer;
             }
         }
     });
 
     if (bestRetailer) {
 
-        document.getElementById("best-card").style.display = "block";
+        document.getElementById(
+            "best-card"
+        ).style.display = "block";
 
-        document.getElementById("best-retailer").textContent =
+        document.getElementById(
+            "best-retailer"
+        ).textContent =
             formatRetailer(bestRetailer);
 
-        document.getElementById("best-price").textContent =
+        document.getElementById(
+            "best-price"
+        ).textContent =
             "INR " + bestPrice.toFixed(2);
 
     } else {
 
-        document.getElementById("best-card").style.display = "none";
+        document.getElementById(
+            "best-card"
+        ).style.display = "none";
     }
+
 
     data.retailers.forEach(item => {
 
-        const row = document.createElement("tr");
+        const row =
+            document.createElement("tr");
 
-        const isWinner = item.retailer === bestRetailer;
+        const isWinner =
+            item.retailer === bestRetailer;
 
         row.innerHTML = `
             <td class="${isWinner ? "winner" : ""}">
@@ -519,19 +617,52 @@ function renderResults(data) {
             </td>
 
             <td>
-                ${escapeHtml(item.product || data.product || "-")}
-            </td>
-
-            <td>-</td>
-
-            <td>-</td>
-
-            <td class="${isWinner ? "winner" : ""}">
-                ${item.price !== null ? "INR " + Number(item.price).toFixed(2) : "-"}
+                ${escapeHtml(
+                    item.product ||
+                    data.product ||
+                    "-"
+                )}
             </td>
 
             <td>
-                <span class="${item.status === "success" ? "success" : "error"}">
+                ${
+                    item.delivery_fee !== null
+                        ? "INR " +
+                          Number(
+                              item.delivery_fee
+                          ).toFixed(2)
+                        : "-"
+                }
+            </td>
+
+            <td>
+                ${
+                    item.handling_fee !== null
+                        ? "INR " +
+                          Number(
+                              item.handling_fee
+                          ).toFixed(2)
+                        : "-"
+                }
+            </td>
+
+            <td class="${isWinner ? "winner" : ""}">
+                ${
+                    item.final_checkout_price !== null
+                        ? "INR " +
+                          Number(
+                              item.final_checkout_price
+                          ).toFixed(2)
+                        : "-"
+                }
+            </td>
+
+            <td>
+                <span class="${
+                    item.status === "success"
+                        ? "success"
+                        : "error"
+                }">
                     ${escapeHtml(item.status)}
                 </span>
             </td>
@@ -546,7 +677,11 @@ function formatRetailer(name) {
 
     return name
         .split("_")
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map(
+            word =>
+                word.charAt(0).toUpperCase() +
+                word.slice(1)
+        )
         .join(" ");
 }
 
@@ -555,10 +690,22 @@ function escapeHtml(value) {
 
     return String(value)
         .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 }
 
 </script>

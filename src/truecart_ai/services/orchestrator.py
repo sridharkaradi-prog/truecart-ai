@@ -7,7 +7,7 @@ from truecart_ai.domain.models import (
     RetailerResult,
 )
 from truecart_ai.retailers.registry import RetailerRegistry
-from truecart_ai.services.comparison import ComparisonService
+from truecart_ai.services.checkout_pricing import CheckoutPricingService
 
 
 class RetailerOrchestrator:
@@ -19,7 +19,7 @@ class RetailerOrchestrator:
         timeout_seconds: float = 10.0,
     ) -> None:
         self.registry = registry or RetailerRegistry()
-        self.comparison = ComparisonService()
+        self.checkout_pricing = CheckoutPricingService()
         self.timeout_seconds = timeout_seconds
 
     def compare(
@@ -77,7 +77,18 @@ class RetailerOrchestrator:
                 if result.offer is not None
             ]
 
-        best_offer = self.comparison.find_best_offer(offers)
+        best_offer = None
+        best_checkout_price = None
+
+        for offer in offers:
+            checkout_price = self.checkout_pricing.calculate(offer)
+
+            if (
+                best_checkout_price is None
+                or checkout_price.final_price < best_checkout_price
+            ):
+                best_offer = offer
+                best_checkout_price = checkout_price.final_price
 
         return ComparisonResult(
             best_offer=best_offer,
