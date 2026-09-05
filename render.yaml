@@ -3,8 +3,11 @@ services:
     name: truecart-ai
     runtime: python
     plan: free
-    buildCommand: "pip install -e ."
-    startCommand: "uvicorn truecart_ai.main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: pip install .
+    startCommand: uvicorn truecart_ai.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"
       - key: TRUECART_DEMO_MODE
         value: "true"
