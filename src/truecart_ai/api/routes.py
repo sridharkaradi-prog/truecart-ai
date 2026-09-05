@@ -1,23 +1,24 @@
 ﻿from pathlib import Path
+import os
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from truecart_ai.domain.models import Location, Product
 from truecart_ai.retailers.demo import DemoRetailerAdapter
 from truecart_ai.retailers.registry import RetailerRegistry
 from truecart_ai.services.orchestrator import RetailerOrchestrator
+from truecart_ai.services.product_catalogue import PRODUCT_CATALOGUE
+from truecart_ai.services.product_search import ProductSearchService
 
 router = APIRouter()
 
 UI_PATH = Path(__file__).resolve().parent.parent / "ui" / "index.html"
 
+product_search = ProductSearchService(PRODUCT_CATALOGUE)
+
 
 def get_orchestrator() -> RetailerOrchestrator:
-    """Build the orchestrator using demo data when DEMO mode is enabled."""
-
-    import os
-
     if os.getenv("TRUECART_DEMO_MODE", "false").lower() == "true":
         registry = RetailerRegistry()
 
@@ -42,6 +43,42 @@ def health() -> dict[str, str]:
 @router.get("/ui")
 def ui() -> FileResponse:
     return FileResponse(UI_PATH)
+
+
+@router.get("/suggestions")
+def suggestions(
+    query: str,
+    pincode: str,
+    limit: int = 8,
+) -> dict:
+    try:
+        location = Location(pincode=pincode)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    matches = product_search.suggest(
+        query=query,
+        location=location,
+        limit=limit,
+    )
+
+    return {
+        "query": query,
+        "pincode": pincode,
+        "suggestions": [
+            {
+                "name": item.name,
+                "brand": item.brand,
+                "quantity": item.quantity,
+                "retailer": item.retailer,
+                "source": item.source,
+            }
+            for item in matches
+        ],
+    }
 
 
 @router.get("/compare")

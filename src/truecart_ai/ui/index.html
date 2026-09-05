@@ -43,7 +43,10 @@
             align-items: end;
         }
 
-        .field { flex: 1; }
+        .field {
+            flex: 1;
+            position: relative;
+        }
 
         .field.small { max-width: 180px; }
 
@@ -71,6 +74,50 @@
             font-size: 15px;
             font-weight: bold;
             cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.92;
+        }
+
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+            z-index: 1000;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 11px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+            background: #f9fafb;
+        }
+
+        .suggestion-name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .suggestion-meta {
+            margin-top: 3px;
+            font-size: 12px;
+            color: #6b7280;
         }
 
         .best-card {
@@ -196,7 +243,13 @@
 
         <div class="field">
             <label>PRODUCT</label>
-            <input id="product" value="Tata Salt" placeholder="Enter product">
+            <input
+                id="product"
+                value="Tata Salt"
+                placeholder="Enter product"
+                autocomplete="off"
+            >
+            <div id="suggestions" class="suggestions"></div>
         </div>
 
         <div class="field small">
@@ -246,16 +299,143 @@
 
 <script>
 
+let suggestionTimer = null;
+
+
+document.getElementById("product").addEventListener("input", function () {
+
+    clearTimeout(suggestionTimer);
+
+    const query = this.value.trim();
+
+    if (query.length < 2) {
+        hideSuggestions();
+        return;
+    }
+
+    suggestionTimer = setTimeout(() => {
+        loadSuggestions(query);
+    }, 250);
+});
+
+
+document.getElementById("pincode").addEventListener("input", function () {
+
+    const query = document.getElementById("product").value.trim();
+
+    if (query.length >= 2) {
+        clearTimeout(suggestionTimer);
+
+        suggestionTimer = setTimeout(() => {
+            loadSuggestions(query);
+        }, 250);
+    }
+});
+
+
+async function loadSuggestions(query) {
+
+    const pincode = document.getElementById("pincode").value.trim();
+    const suggestionsBox = document.getElementById("suggestions");
+
+    if (!/^\d{6}$/.test(pincode)) {
+        hideSuggestions();
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `/suggestions?query=${encodeURIComponent(query)}&pincode=${encodeURIComponent(pincode)}`
+        );
+
+        if (!response.ok) {
+            throw new Error("Suggestion API request failed");
+        }
+
+        const data = await response.json();
+
+        suggestionsBox.innerHTML = "";
+
+        if (!data.suggestions || data.suggestions.length === 0) {
+            hideSuggestions();
+            return;
+        }
+
+        data.suggestions.forEach(item => {
+
+            const suggestion = document.createElement("div");
+
+            suggestion.className = "suggestion-item";
+
+            suggestion.innerHTML = `
+                <div class="suggestion-name">
+                    ${escapeHtml(item.name)}
+                </div>
+                <div class="suggestion-meta">
+                    ${escapeHtml(formatRetailer(item.retailer))}
+                    ${item.quantity ? " • " + escapeHtml(item.quantity) : ""}
+                </div>
+            `;
+
+            suggestion.addEventListener("click", function () {
+
+                document.getElementById("product").value = item.name;
+
+                hideSuggestions();
+
+            });
+
+            suggestionsBox.appendChild(suggestion);
+        });
+
+        suggestionsBox.style.display = "block";
+
+    } catch (error) {
+
+        hideSuggestions();
+        console.error(error);
+    }
+}
+
+
+function hideSuggestions() {
+
+    const suggestionsBox = document.getElementById("suggestions");
+
+    suggestionsBox.innerHTML = "";
+    suggestionsBox.style.display = "none";
+}
+
+
+document.addEventListener("click", function (event) {
+
+    const productField = document.getElementById("product");
+
+    if (
+        event.target !== productField &&
+        !event.target.closest(".suggestions")
+    ) {
+        hideSuggestions();
+    }
+});
+
+
 async function comparePrices() {
+
+    hideSuggestions();
 
     const product = document.getElementById("product").value.trim();
     const pincode = document.getElementById("pincode").value.trim();
     const message = document.getElementById("message");
 
     if (!product || !/^\d{6}$/.test(pincode)) {
+
         message.style.display = "block";
+
         message.textContent =
             "Please enter a product and a valid 6-digit pincode.";
+
         return;
     }
 
@@ -278,6 +458,7 @@ async function comparePrices() {
     } catch (error) {
 
         message.style.display = "block";
+
         message.textContent =
             "Unable to compare prices. Make sure the TrueCart API is running.";
 
@@ -338,7 +519,7 @@ function renderResults(data) {
             </td>
 
             <td>
-                ${item.price !== null ? "INR " + Number(item.price).toFixed(2) : "-"}
+                ${escapeHtml(item.product || data.product || "-")}
             </td>
 
             <td>-</td>
@@ -351,7 +532,7 @@ function renderResults(data) {
 
             <td>
                 <span class="${item.status === "success" ? "success" : "error"}">
-                    ${item.status}
+                    ${escapeHtml(item.status)}
                 </span>
             </td>
         `;
@@ -367,6 +548,17 @@ function formatRetailer(name) {
         .split("_")
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
+}
+
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 </script>
