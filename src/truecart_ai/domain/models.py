@@ -11,7 +11,9 @@ class Location:
     def __post_init__(self) -> None:
         if self.country == "IN":
             if not self.pincode.isdigit() or len(self.pincode) != 6:
-                raise ValueError("Indian pincode must be exactly 6 digits.")
+                raise ValueError(
+                    "Indian pincode must be exactly 6 digits."
+                )
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,8 @@ class RetailerResult:
     status: str
     offer: Optional[ProductOffer] = None
     error: Optional[str] = None
+    attempts: int = 1
+    duration_ms: Optional[float] = None
 
 
 @dataclass(frozen=True)

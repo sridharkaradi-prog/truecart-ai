@@ -1,12 +1,26 @@
 ﻿import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Query,
+)
 from fastapi.responses import FileResponse
 
-from truecart_ai.domain.models import Location, Product
-from truecart_ai.retailers.demo import DemoRetailerAdapter
-from truecart_ai.retailers.registry import RetailerRegistry
+from truecart_ai.domain.models import (
+    Location,
+    Product,
+)
+from truecart_ai.retailers.demo import (
+    DemoRetailerAdapter,
+)
+from truecart_ai.retailers.registry import (
+    RetailerRegistry,
+)
+from truecart_ai.services.cache import (
+    TTLCache,
+)
 from truecart_ai.services.cart_comparison import (
     CartComparisonService,
 )
@@ -45,7 +59,17 @@ cart_comparison = CartComparisonService(
     checkout_pricing
 )
 
-cart_recommendation = CartRecommendationService()
+cart_recommendation = (
+    CartRecommendationService()
+)
+
+comparison_cache = TTLCache(
+    ttl_seconds=60.0
+)
+
+cart_cache = TTLCache(
+    ttl_seconds=60.0
+)
 
 
 def get_orchestrator() -> RetailerOrchestrator:
@@ -92,6 +116,7 @@ def get_orchestrator() -> RetailerOrchestrator:
 
 @router.get("/health")
 def health() -> dict[str, str]:
+
     return {
         "status": "ok"
     }
@@ -99,6 +124,7 @@ def health() -> dict[str, str]:
 
 @router.get("/ui")
 def ui() -> FileResponse:
+
     return FileResponse(
         UI_PATH
     )
@@ -112,6 +138,7 @@ def suggestions(
 ) -> dict:
 
     try:
+
         location = Location(
             pincode=pincode
         )
@@ -152,6 +179,7 @@ def compare_product(
 ) -> dict:
 
     try:
+
         location = Location(
             pincode=pincode
         )
@@ -163,14 +191,36 @@ def compare_product(
             detail=str(exc),
         ) from exc
 
-    product_model = Product(
-        name=product
+    cache_key = (
+        f"compare:{product.strip().lower()}:"
+        f"{pincode}"
     )
 
-    result = get_orchestrator().compare(
-        product_model,
-        location,
+    cached_result, cache_hit = (
+        comparison_cache.get(
+            cache_key
+        )
     )
+
+    if cache_hit:
+
+        result = cached_result
+
+    else:
+
+        product_model = Product(
+            name=product
+        )
+
+        result = get_orchestrator().compare(
+            product_model,
+            location,
+        )
+
+        comparison_cache.set(
+            cache_key,
+            result,
+        )
 
     retailers = []
 
@@ -223,6 +273,12 @@ def compare_product(
                     if checkout
                     else None
                 ),
+                "attempts": (
+                    item.attempts
+                ),
+                "duration_ms": (
+                    item.duration_ms
+                ),
                 "error": item.error,
             }
         )
@@ -264,6 +320,7 @@ def compare_product(
     return {
         "product": product,
         "pincode": pincode,
+        "cache_hit": cache_hit,
         "best_offer": best_offer,
         "retailers": retailers,
     }
@@ -285,14 +342,18 @@ def compare_cart(
 
         raise HTTPException(
             status_code=400,
-            detail="At least one product is required.",
+            detail=(
+                "At least one product is required."
+            ),
         )
 
     if len(cleaned_products) > 10:
 
         raise HTTPException(
             status_code=400,
-            detail="Maximum 10 products per cart.",
+            detail=(
+                "Maximum 10 products per cart."
+            ),
         )
 
     try:
@@ -308,33 +369,70 @@ def compare_cart(
             detail=str(exc),
         ) from exc
 
-    orchestrator = get_orchestrator()
-
-    product_models = [
-        Product(
-            name=product
-        )
+    normalized_products = [
+        product.lower()
         for product in cleaned_products
     ]
 
-    comparisons = [
-        orchestrator.compare(
-            product,
-            location,
+    cache_key = (
+        "cart:"
+        + "|".join(
+            sorted(normalized_products)
         )
-        for product in product_models
-    ]
-
-    result = cart_comparison.compare(
-        product_models,
-        comparisons,
+        + f":{pincode}"
     )
 
-    recommendation = (
-        cart_recommendation.recommend(
-            result
+    cached_result, cache_hit = (
+        cart_cache.get(
+            cache_key
         )
     )
+
+    if cache_hit:
+
+        result, recommendation = (
+            cached_result
+        )
+
+    else:
+
+        orchestrator = (
+            get_orchestrator()
+        )
+
+        product_models = [
+            Product(
+                name=product
+            )
+            for product in cleaned_products
+        ]
+
+        comparisons = [
+            orchestrator.compare(
+                product,
+                location,
+            )
+            for product in product_models
+        ]
+
+        result = cart_comparison.compare(
+            product_models,
+            comparisons,
+        )
+
+        recommendation = (
+            cart_recommendation.recommend(
+                result
+            )
+        )
+
+        cart_cache.set(
+            cache_key,
+            (
+                result,
+                recommendation,
+            ),
+        )
 
     retailer_options = [
         {
@@ -368,12 +466,15 @@ def compare_cart(
             "step": trace.step,
             "detail": trace.detail,
         }
-        for trace in recommendation.decision_trace
+        for trace in (
+            recommendation.decision_trace
+        )
     ]
 
     return {
         "pincode": pincode,
         "products": cleaned_products,
+        "cache_hit": cache_hit,
         "cheapest_complete_retailer": (
             result.cheapest_complete_retailer
         ),
@@ -426,7 +527,9 @@ def compare_cart(
             "reason": (
                 recommendation.reason
             ),
-            "decision_trace": decision_trace,
+            "decision_trace": (
+                decision_trace
+            ),
         },
         "retailers": retailer_options,
         "split_cart": split_cart,
