@@ -1,7 +1,7 @@
 ﻿import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from truecart_ai.domain.models import Location, Product
@@ -57,6 +57,7 @@ def get_orchestrator() -> RetailerOrchestrator:
         ).lower()
         == "true"
     ):
+
         registry = RetailerRegistry()
 
         registry._adapters = [
@@ -91,12 +92,16 @@ def get_orchestrator() -> RetailerOrchestrator:
 
 @router.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {
+        "status": "ok"
+    }
 
 
 @router.get("/ui")
 def ui() -> FileResponse:
-    return FileResponse(UI_PATH)
+    return FileResponse(
+        UI_PATH
+    )
 
 
 @router.get("/suggestions")
@@ -110,7 +115,9 @@ def suggestions(
         location = Location(
             pincode=pincode
         )
+
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
@@ -148,7 +155,9 @@ def compare_product(
         location = Location(
             pincode=pincode
         )
+
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
@@ -170,6 +179,7 @@ def compare_product(
         checkout = None
 
         if item.offer is not None:
+
             checkout = (
                 checkout_pricing.calculate(
                     item.offer
@@ -186,22 +196,30 @@ def compare_product(
                     else None
                 ),
                 "price": (
-                    str(item.offer.price.amount)
+                    str(
+                        item.offer.price.amount
+                    )
                     if item.offer
                     else None
                 ),
                 "delivery_fee": (
-                    str(checkout.delivery_fee)
+                    str(
+                        checkout.delivery_fee
+                    )
                     if checkout
                     else None
                 ),
                 "handling_fee": (
-                    str(checkout.handling_fee)
+                    str(
+                        checkout.handling_fee
+                    )
                     if checkout
                     else None
                 ),
                 "final_checkout_price": (
-                    str(checkout.final_price)
+                    str(
+                        checkout.final_price
+                    )
                     if checkout
                     else None
                 ),
@@ -253,8 +271,8 @@ def compare_product(
 
 @router.get("/cart/compare")
 def compare_cart(
-    products: list[str],
-    pincode: str,
+    products: list[str] = Query(...),
+    pincode: str = Query(...),
 ) -> dict:
 
     cleaned_products = [
@@ -264,22 +282,27 @@ def compare_cart(
     ]
 
     if not cleaned_products:
+
         raise HTTPException(
             status_code=400,
             detail="At least one product is required.",
         )
 
     if len(cleaned_products) > 10:
+
         raise HTTPException(
             status_code=400,
             detail="Maximum 10 products per cart.",
         )
 
     try:
+
         location = Location(
             pincode=pincode
         )
+
     except ValueError as exc:
+
         raise HTTPException(
             status_code=400,
             detail=str(exc),
@@ -288,7 +311,9 @@ def compare_cart(
     orchestrator = get_orchestrator()
 
     product_models = [
-        Product(name=product)
+        Product(
+            name=product
+        )
         for product in cleaned_products
     ]
 
@@ -305,8 +330,10 @@ def compare_cart(
         comparisons,
     )
 
-    recommendation = cart_recommendation.recommend(
-        result
+    recommendation = (
+        cart_recommendation.recommend(
+            result
+        )
     )
 
     retailer_options = [
@@ -336,6 +363,14 @@ def compare_cart(
         for item in result.split_cart
     ]
 
+    decision_trace = [
+        {
+            "step": trace.step,
+            "detail": trace.detail,
+        }
+        for trace in recommendation.decision_trace
+    ]
+
     return {
         "pincode": pincode,
         "products": cleaned_products,
@@ -343,13 +378,19 @@ def compare_cart(
             result.cheapest_complete_retailer
         ),
         "cheapest_complete_total": (
-            str(result.cheapest_complete_total)
-            if result.cheapest_complete_total
-            is not None
+            str(
+                result.cheapest_complete_total
+            )
+            if (
+                result.cheapest_complete_total
+                is not None
+            )
             else None
         ),
         "split_total": (
-            str(result.split_total)
+            str(
+                result.split_total
+            )
             if result.split_total is not None
             else None
         ),
@@ -360,11 +401,17 @@ def compare_cart(
             "type": (
                 recommendation.recommendation_type
             ),
-            "retailer": recommendation.retailer,
+            "retailer": (
+                recommendation.retailer
+            ),
             "total_price": (
-                str(recommendation.total_price)
-                if recommendation.total_price
-                is not None
+                str(
+                    recommendation.total_price
+                )
+                if (
+                    recommendation.total_price
+                    is not None
+                )
                 else None
             ),
             "savings": str(
@@ -376,7 +423,10 @@ def compare_cart(
             "retailer_count": (
                 recommendation.retailer_count
             ),
-            "reason": recommendation.reason,
+            "reason": (
+                recommendation.reason
+            ),
+            "decision_trace": decision_trace,
         },
         "retailers": retailer_options,
         "split_cart": split_cart,

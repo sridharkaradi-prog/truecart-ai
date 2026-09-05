@@ -13,7 +13,8 @@ from truecart_ai.services.cart_recommendation import (
 def test_recommends_single_retailer_when_split_saving_is_exactly_threshold() -> None:
 
     result = CartComparisonResult(
-        items=[],
+        items=[
+            ],
         retailer_options=[],
         cheapest_complete_retailer="zepto",
         cheapest_complete_total=Decimal("110.00"),
@@ -40,7 +41,16 @@ def test_recommends_single_retailer_when_split_saving_is_exactly_threshold() -> 
     assert recommendation.recommendation_type == (
         "single_retailer"
     )
+
     assert recommendation.retailer == "zepto"
+
+    assert recommendation.savings == (
+        Decimal("0.00")
+    )
+
+    assert len(
+        recommendation.decision_trace
+    ) >= 4
 
 
 def test_recommends_single_retailer_when_split_saving_is_small() -> None:
@@ -62,8 +72,17 @@ def test_recommends_single_retailer_when_split_saving_is_small() -> None:
     assert recommendation.recommendation_type == (
         "single_retailer"
     )
+
     assert recommendation.retailer == "zepto"
-    assert recommendation.savings == Decimal("0.00")
+
+    assert recommendation.savings == (
+        Decimal("0.00")
+    )
+
+    assert any(
+        item.step == "threshold_check"
+        for item in recommendation.decision_trace
+    )
 
 
 def test_recommends_split_when_no_complete_basket_exists() -> None:
@@ -77,7 +96,7 @@ def test_recommends_split_when_no_complete_basket_exists() -> None:
             SplitCartItem(
                 product=Product(name="Tata Salt"),
                 retailer="blinkit",
-                final_price=Decimal("46.00"),
+                final_price=Decimal("32.00"),
             ),
         ],
         split_total=Decimal("46.00"),
@@ -91,4 +110,12 @@ def test_recommends_split_when_no_complete_basket_exists() -> None:
     assert recommendation.recommendation_type == (
         "split_basket"
     )
-    assert recommendation.total_price == Decimal("46.00")
+
+    assert recommendation.total_price == (
+        Decimal("46.00")
+    )
+
+    assert any(
+        item.step == "decision"
+        for item in recommendation.decision_trace
+    )
